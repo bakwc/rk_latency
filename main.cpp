@@ -60,11 +60,6 @@ typedef struct {
     RK_U32          height;
     RK_U32          debug;
 
-    RK_U32          have_input;
-    RK_U32          have_output;
-    RK_U32          have_config;
-
-    RK_U32          simple;
     RK_S32          timeout;
     RK_S32          frame_num;
     size_t          pkt_size;
@@ -199,7 +194,7 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     mpp_log("mpi_dec_test start\n");
     memset(&data, 0, sizeof(data));
 
-    if (cmd->have_input) {
+    {
         data.fp_input = fopen(cmd->file_input, "rb");
         if (NULL == data.fp_input) {
             mpp_err("failed to open input file %s\n", cmd->file_input);
@@ -211,17 +206,10 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
         mpp_log("input file size %ld\n", file_size);
     }
 
-    if (cmd->have_output) {
+    {
         data.fp_output = fopen(cmd->file_output, "w+b");
         if (NULL == data.fp_output) {
             mpp_err("failed to open output file %s\n", cmd->file_output);
-        }
-    }
-
-    if (cmd->have_config) {
-        data.fp_config = fopen(cmd->file_config, "r");
-        if (NULL == data.fp_config) {
-            mpp_err("failed to open config file %s\n", cmd->file_config);
         }
     }
 
@@ -353,12 +341,7 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
         ctx = NULL;
     }
 
-    if (cmd->simple) {
-        if (buf) {
-            free(buf);
-            buf = NULL;
-        }
-    } else {
+    {
         if (pkt_buf) {
             mpp_buffer_put(pkt_buf);
             pkt_buf = NULL;
@@ -396,6 +379,7 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
 
 int main(int argc, char **argv)
 {
+    
     RK_S32 ret = 0;
     MpiDecTestCmd  cmd_ctx;
     MpiDecTestCmd* cmd = &cmd_ctx;
@@ -410,13 +394,9 @@ int main(int argc, char **argv)
 
     std::string inFile = "/home/fippo/drone.jpg";
     memcpy(cmd->file_input, inFile.c_str(), inFile.size()+1);
-    cmd->have_input = 1;
 
     std::string outFile = "/home/fippo/result.bin";
     memcpy(cmd->file_output, outFile.c_str(), outFile.size()+1);
-    cmd->have_output = 1;
-
-    cmd->simple = 0;
 
     ret = mpi_dec_test_decode(cmd);
     if (MPP_OK == ret)
