@@ -42,9 +42,7 @@ typedef struct {
     size_t          packet_size;
     MppFrame        frame;
 
-    FILE            *fp_input;
     FILE            *fp_output;
-    FILE            *fp_config;
     RK_S32          frame_count;
     RK_S32          frame_num;
     size_t          max_usage;
@@ -54,7 +52,6 @@ typedef struct {
 } MpiDecLoopData;
 
 typedef struct {
-    char            file_input[MAX_FILE_NAME_LENGTH];
     char            file_output[MAX_FILE_NAME_LENGTH];
     char            file_config[MAX_FILE_NAME_LENGTH];
     MppCodingType   type;
@@ -66,9 +63,6 @@ typedef struct {
     RK_S32          timeout;
     RK_S32          frame_num;
     size_t          pkt_size;
-
-    // report information
-    size_t          max_usage;
 
     void* jpgData;
     size_t jpgDataSize;
@@ -90,15 +84,6 @@ static int decode_advanced(MpiDecLoopData *data)
     memcpy(buf, data->jpgData, data->jpgDataSize);
 
     data->eos = pkt_eos = 1;
-
-//    size_t read_size = fread(buf, 1, data->packet_size, data->fp_input);
-
-//    if (read_size != data->packet_size || feof(data->fp_input)) {
-//        mpp_log("found last packet\n");
-//
-//        // setup eos flag
-//        data->eos = pkt_eos = 1;
-//    }
 
     // reset pos
     mpp_packet_set_pos(packet, buf);
@@ -207,18 +192,6 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
 
     data.jpgData = cmd->jpgData;
     data.jpgDataSize = cmd->jpgDataSize;
-
-//    {
-//        data.fp_input = fopen(cmd->file_input, "rb");
-//        if (NULL == data.fp_input) {
-//            mpp_err("failed to open input file %s\n", cmd->file_input);
-//        }
-//
-//        fseek(data.fp_input, 0L, SEEK_END);
-//        file_size = ftell(data.fp_input);
-//        rewind(data.fp_input);
-//        mpp_log("input file size %ld\n", file_size);
-//    }
 
     {
         data.fp_output = fopen(cmd->file_output, "w+b");
@@ -331,8 +304,6 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
         decode_advanced(&data);
     }
 
-    cmd->max_usage = data.max_usage;
-
     ret = mpi->reset(ctx);
     if (MPP_OK != ret) {
         mpp_err("mpi->reset failed\n");
@@ -407,21 +378,16 @@ int main(int argc, char **argv)
     cmd->height = 960;
 
     std::string jpgData = readFromFileFull("/home/fippo/drone.jpg");
-    printf("[info] jpg file loaded\n");
+    printf("[info] jpg file loaded, size: %d\n", (int)jpgData.size());
 
     cmd->jpgData = &jpgData[0];
     cmd->jpgDataSize = jpgData.size();
-
-    std::string inFile = "/home/fippo/drone.jpg";
-    memcpy(cmd->file_input, inFile.c_str(), inFile.size()+1);
 
     std::string outFile = "/home/fippo/result.bin";
     memcpy(cmd->file_output, outFile.c_str(), outFile.size()+1);
 
     ret = mpi_dec_test_decode(cmd);
-    if (MPP_OK == ret)
-        mpp_log("test success max memory %.2f MB\n", cmd->max_usage / (float)(1 << 20));
-    else
+    if (MPP_OK != ret)
         mpp_err("test failed ret %d\n", ret);
 
 //    mpp_env_set_u32("mpi_debug", 0x0);
