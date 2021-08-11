@@ -135,16 +135,16 @@ void dump_mpp_frame_to_file(MppFrame frame, FILE *fp)
         fwrite(tmp, 1, width * height * 2, fp);
         free(tmp);
     } break;
-    case MPP_FMT_YUV400: {
-        RK_U32 i;
-        RK_U8 *base_y = base;
-        RK_U8 *tmp = malloc(h_stride * height);
-
-        for (i = 0; i < height; i++, base_y += h_stride)
-            fwrite(base_y, 1, width, fp);
-
-        free(tmp);
-    } break;
+//    case MPP_FMT_YUV400: {
+//        RK_U32 i;
+//        RK_U8 *base_y = base;
+//        RK_U8 *tmp = malloc(h_stride * height);
+//
+//        for (i = 0; i < height; i++, base_y += h_stride)
+//            fwrite(base_y, 1, width, fp);
+//
+//        free(tmp);
+//    } break;
     default : {
         printf("not supported format %d\n", fmt);
     } break;

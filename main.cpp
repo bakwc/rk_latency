@@ -342,12 +342,12 @@ static int decode_simple(MpiDecLoopData *data)
                 get_frm = 1;
             }
 
-            // try get runtime frame memory usage
-            if (data->frm_grp) {
-                size_t usage = mpp_buffer_group_usage(data->frm_grp);
-                if (usage > data->max_usage)
-                    data->max_usage = usage;
-            }
+//            // try get runtime frame memory usage
+//            if (data->frm_grp) {
+//                size_t usage = mpp_buffer_group_usage(data->frm_grp);
+//                if (usage > data->max_usage)
+//                    data->max_usage = usage;
+//            }
 
             // if last packet is send but last frame is not found continue
             if (pkt_eos && pkt_done && !frm_eos) {
@@ -498,7 +498,8 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     MpiCmd mpi_cmd      = MPP_CMD_BASE;
     MppParam param      = NULL;
     RK_U32 need_split   = 1;
-    MppPollType timeout = (MppPollType)cmd->timeout;
+    RK_U32 output_block = MPP_POLL_BLOCK;
+    RK_S64 block_timeout = cmd->timeout;
 
     // paramter for resource malloc
     RK_U32 width        = cmd->width;
@@ -627,15 +628,18 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
         goto MPP_TEST_OUT;
     }
 
-    // NOTE: timeout value please refer to MppPollType definition
-    //  0   - non-block call (default)
-    // -1   - block call
-    // +val - timeout value in ms
-    if (timeout) {
-        param = &timeout;
-        ret = mpi->control(ctx, MPP_SET_OUTPUT_TIMEOUT, param);
+    if (block_timeout) {
+        param = &output_block;
+        ret = mpi->control(ctx, MPP_SET_OUTPUT_BLOCK, param);
         if (MPP_OK != ret) {
-            mpp_err("Failed to set output timeout %d ret %d\n", timeout, ret);
+            mpp_err("Failed to set blocking mode on MPI (code = %d).\n", ret);
+            goto MPP_TEST_OUT;
+        }
+
+        param = &block_timeout;
+        ret = mpi->control(ctx, MPP_SET_OUTPUT_BLOCK_TIMEOUT, param);
+        if (MPP_OK != ret) {
+            mpp_err("Failed to set blocking mode on MPI (code = %d).\n", ret);
             goto MPP_TEST_OUT;
         }
     }
