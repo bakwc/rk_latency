@@ -18,9 +18,39 @@
 #define __UTILS_H__
 
 #include <stdio.h>
+#include <string>
+#include <chrono>
+#include <fstream>
+#include <sstream>
 
 #include "mpp_frame.h"
 #include "mpp_common.h"
+
+
+inline uint64_t millis() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+inline void writeToFile(const std::string& fname, void* data, size_t size) {
+    auto ptr = fopen(fname.c_str(),"wb");  // r for read, b for binary
+    fwrite(data, size, 1, ptr);
+    fflush(ptr);
+    fclose(ptr);
+}
+
+inline void readFromFile(const std::string& fname, void* buffer, size_t size) {
+    auto ptr = fopen(fname.c_str(),"rb");  // r for read, b for binary
+    fread(buffer, size, 1, ptr);
+    fflush(ptr);
+    fclose(ptr);
+}
+
+inline std::string readFromFileFull(const std::string& fname) {
+    std::ifstream fin(fname, std::ios::binary);
+    std::ostringstream ostrm;
+    ostrm << fin.rdbuf();
+    return ostrm.str();
+}
 
 
 typedef struct OptionInfo_t {

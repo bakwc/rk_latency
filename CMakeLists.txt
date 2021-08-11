@@ -3,7 +3,7 @@ project(jpgdec)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(jpgdec main.cpp jpeg_decoder.cpp utils.c)
+add_executable(jpgdec main.cpp jpeg_decoder.cpp utils.cpp)
 
 include_directories(/usr/local/include/rockchip/)
 
