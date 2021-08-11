@@ -48,6 +48,9 @@ typedef struct {
     RK_S32          frame_count;
     RK_S32          frame_num;
     size_t          max_usage;
+
+    void* jpgData;
+    size_t jpgDataSize;
 } MpiDecLoopData;
 
 typedef struct {
@@ -66,6 +69,9 @@ typedef struct {
 
     // report information
     size_t          max_usage;
+
+    void* jpgData;
+    size_t jpgDataSize;
 } MpiDecTestCmd;
 
 
@@ -79,14 +85,20 @@ static int decode_advanced(MpiDecLoopData *data)
     MppPacket packet = data->packet;
     MppFrame  frame  = data->frame;
     MppTask task = NULL;
-    size_t read_size = fread(buf, 1, data->packet_size, data->fp_input);
 
-    if (read_size != data->packet_size || feof(data->fp_input)) {
-        mpp_log("found last packet\n");
+    size_t read_size = data->jpgDataSize;
+    memcpy(buf, data->jpgData, data->jpgDataSize);
 
-        // setup eos flag
-        data->eos = pkt_eos = 1;
-    }
+    data->eos = pkt_eos = 1;
+
+//    size_t read_size = fread(buf, 1, data->packet_size, data->fp_input);
+
+//    if (read_size != data->packet_size || feof(data->fp_input)) {
+//        mpp_log("found last packet\n");
+//
+//        // setup eos flag
+//        data->eos = pkt_eos = 1;
+//    }
 
     // reset pos
     mpp_packet_set_pos(packet, buf);
@@ -162,7 +174,6 @@ static int decode_advanced(MpiDecLoopData *data)
 int mpi_dec_test_decode(MpiDecTestCmd *cmd)
 {
     MPP_RET ret         = MPP_OK;
-    size_t file_size    = 0;
 
     // base flow context
     MppCtx ctx          = NULL;
@@ -194,17 +205,20 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     mpp_log("mpi_dec_test start\n");
     memset(&data, 0, sizeof(data));
 
-    {
-        data.fp_input = fopen(cmd->file_input, "rb");
-        if (NULL == data.fp_input) {
-            mpp_err("failed to open input file %s\n", cmd->file_input);
-        }
+    data.jpgData = cmd->jpgData;
+    data.jpgDataSize = cmd->jpgDataSize;
 
-        fseek(data.fp_input, 0L, SEEK_END);
-        file_size = ftell(data.fp_input);
-        rewind(data.fp_input);
-        mpp_log("input file size %ld\n", file_size);
-    }
+//    {
+//        data.fp_input = fopen(cmd->file_input, "rb");
+//        if (NULL == data.fp_input) {
+//            mpp_err("failed to open input file %s\n", cmd->file_input);
+//        }
+//
+//        fseek(data.fp_input, 0L, SEEK_END);
+//        file_size = ftell(data.fp_input);
+//        rewind(data.fp_input);
+//        mpp_log("input file size %ld\n", file_size);
+//    }
 
     {
         data.fp_output = fopen(cmd->file_output, "w+b");
@@ -245,7 +259,7 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
         goto MPP_TEST_OUT;
     }
 
-    packet_size = file_size;
+    packet_size = cmd->jpgDataSize;
 
     ret = mpp_buffer_get(data.pkt_grp, &pkt_buf, packet_size);
     if (ret) {
@@ -368,10 +382,10 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
         data.fp_output = NULL;
     }
 
-    if (data.fp_input) {
-        fclose(data.fp_input);
-        data.fp_input = NULL;
-    }
+//    if (data.fp_input) {
+//        fclose(data.fp_input);
+//        data.fp_input = NULL;
+//    }
 
     return ret;
 }
@@ -379,7 +393,7 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
 
 int main(int argc, char **argv)
 {
-    
+
     RK_S32 ret = 0;
     MpiDecTestCmd  cmd_ctx;
     MpiDecTestCmd* cmd = &cmd_ctx;
@@ -391,6 +405,12 @@ int main(int argc, char **argv)
     cmd->type = MPP_VIDEO_CodingMJPEG;
     cmd->width = 1280;
     cmd->height = 960;
+
+    std::string jpgData = readFromFileFull("/home/fippo/drone.jpg");
+    printf("[info] jpg file loaded\n");
+
+    cmd->jpgData = &jpgData[0];
+    cmd->jpgDataSize = jpgData.size();
 
     std::string inFile = "/home/fippo/drone.jpg";
     memcpy(cmd->file_input, inFile.c_str(), inFile.size()+1);
