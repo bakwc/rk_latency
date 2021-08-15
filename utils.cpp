@@ -57,6 +57,8 @@ void dump_mpp_frame_to_file(MppFrame frame, FILE *fp)
     if (NULL == buffer)
         return ;
 
+    printf("FMT: %d\n", (int)fmt);
+
     base = (RK_U8 *)mpp_buffer_get_ptr(buffer);
 
     switch (fmt) {

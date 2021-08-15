@@ -5,6 +5,7 @@
 #define MODULE_TAG "mpi_dec_test"
 
 #include <string>
+#include <iostream>
 
 #include <string.h>
 #include <cstring>
@@ -80,8 +81,12 @@ static int decode_advanced(MpiDecLoopData *data)
     MppFrame  frame  = data->frame;
     MppTask task = NULL;
 
+    auto t1 = millis();
+
     size_t read_size = data->jpgDataSize;
     memcpy(buf, data->jpgData, data->jpgDataSize);
+
+    std::cerr << "jpg cpy: " << (millis() - t1) << "ms\n";
 
     data->eos = pkt_eos = 1;
 
@@ -115,6 +120,8 @@ static int decode_advanced(MpiDecLoopData *data)
         return ret;
     }
 
+    std::cerr << "jpg enqueue: " << (millis() - t1) << "ms\n";
+
     /* poll and wait here */
     ret = mpi->poll(ctx, MPP_PORT_OUTPUT, MPP_POLL_BLOCK);
     if (ret) {
@@ -122,11 +129,15 @@ static int decode_advanced(MpiDecLoopData *data)
         return ret;
     }
 
+    std::cerr << "jpg poll: " << (millis() - t1) << "ms\n";
+
     ret = mpi->dequeue(ctx, MPP_PORT_OUTPUT, &task); /* output queue */
     if (ret) {
         mpp_err("mpp task output dequeue failed\n");
         return ret;
     }
+
+    std::cerr << "jpg dequeue: " << (millis() - t1) << "ms\n";
 
     mpp_assert(task);
 
@@ -135,10 +146,18 @@ static int decode_advanced(MpiDecLoopData *data)
         mpp_task_meta_get_frame(task, KEY_OUTPUT_FRAME, &frame_out);
         //mpp_assert(packet_out == packet);
 
+        std::cerr << "jpg task: " << (millis() - t1) << "ms\n";
+
         if (frame) {
             /* write frame to file here */
+
+            auto t2 = millis();
+            std::cerr << "Decode time: " << (t2 - t1) << "ms\n";
+
             if (data->fp_output)
                 dump_mpp_frame_to_file(frame, data->fp_output);
+
+            std::cerr << "dumped: " << (millis() - t1) << "ms\n";
 
             data->frame_count++;
             mpp_log("decoded frame %d\n", data->frame_count);
@@ -364,6 +383,8 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
 
 int main(int argc, char **argv)
 {
+//    std::cerr << "azaza: " << (int)MPP_DEC_SET_OUTPUT_FORMAT << "\n";
+//    exit(3);
 
     RK_S32 ret = 0;
     MpiDecTestCmd  cmd_ctx;
@@ -374,16 +395,16 @@ int main(int argc, char **argv)
     cmd->pkt_size = MPI_DEC_STREAM_SIZE;
 
     cmd->type = MPP_VIDEO_CodingMJPEG;
-    cmd->width = 1280;
-    cmd->height = 960;
+    cmd->width = 1920;
+    cmd->height = 1080;
 
-    std::string jpgData = readFromFileFull("/home/fippo/drone.jpg");
+    std::string jpgData = readFromFileFull("/home/fippo/med.jpg");
     printf("[info] jpg file loaded, size: %d\n", (int)jpgData.size());
 
     cmd->jpgData = &jpgData[0];
     cmd->jpgDataSize = jpgData.size();
 
-    std::string outFile = "/home/fippo/result.bin";
+    std::string outFile = "/home/fippo/med.yuv";
     memcpy(cmd->file_output, outFile.c_str(), outFile.size()+1);
 
     ret = mpi_dec_test_decode(cmd);
