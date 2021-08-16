@@ -7,6 +7,10 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS "-O2")
 set(CMAKE_FLAGS "-O2")
 
+#set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_CXX_FLAGS "-O0")
+#set(CMAKE_FLAGS "-O0")
+
 add_executable(jpgdec main.cpp jpeg_decoder.cpp utils.cpp)
 
 include_directories(/usr/local/include/rockchip/)
