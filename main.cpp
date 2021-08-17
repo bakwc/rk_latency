@@ -387,10 +387,6 @@ int main(int argc, char **argv)
     cmd->width = 1920;
     cmd->height = 1080;
 
-    cmd->have_output = 1;
-    std::string outFileName = "test.yuv";
-    memcpy(cmd->file_output, outFileName.data(), outFileName.size());
-
     // parse the cmd option
 
     ret = mpi_dec_test_decode(cmd);
