@@ -315,9 +315,14 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     data.frame          = frame;
     data.frame_count    = 0;
 
+    uint64_t t1 = millis();
+
     while (!data.eos) {
         decode_simple(&data);
     }
+
+    uint64_t t2 = millis();
+    std::cout << "\nTotal time: " << (t2 - t1) << "ms\n";
 
     ret = mpi->reset(ctx);
     if (MPP_OK != ret) {
