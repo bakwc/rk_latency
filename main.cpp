@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <unistd.h>
 #include <cassert>
+#include <map>
 #include <stdlib.h>
 
 #include "rk_mpi.h"
@@ -21,8 +22,10 @@
 #include "utils.h"
 
 #define MPI_DEC_LOOP_COUNT          4
-#define MPI_DEC_STREAM_SIZE         (SZ_4K)
+#define MPI_DEC_STREAM_SIZE         (SZ_4M)
 #define MAX_FILE_NAME_LENGTH        256
+
+std::map<int, std::string> framesData;
 
 typedef struct {
     MppCtx          ctx;
@@ -41,20 +44,17 @@ typedef struct {
     size_t          packet_size;
     MppFrame        frame;
 
-    FILE            *fp_input;
     FILE            *fp_output;
     RK_U32          frame_count;
 } MpiDecLoopData;
 
 typedef struct {
-    char            file_input[MAX_FILE_NAME_LENGTH];
     char            file_output[MAX_FILE_NAME_LENGTH];
     MppCodingType   type;
     RK_U32          width;
     RK_U32          height;
     RK_U32          debug;
 
-    RK_U32          have_input;
     RK_U32          have_output;
 
     RK_S32          timeout;
@@ -71,14 +71,24 @@ static int decode_simple(MpiDecLoopData *data)
     char   *buf = data->buf;
     MppPacket packet = data->packet;
     MppFrame  frame  = NULL;
-    size_t read_size = fread(buf, 1, data->packet_size, data->fp_input);
 
-    if (read_size != data->packet_size || feof(data->fp_input)) {
-        printf("found last packet\n");
+    static int frameNum = 0;
+    ++frameNum;
+    static std::map<int, uint64_t> loadTimes;
 
-        // setup eos flag
+    int read_size = 0;
+    if (framesData.find(frameNum-1) != framesData.end()) {
+        std::string& frameData = framesData[frameNum-1];
+        read_size = frameData.size();
+        memcpy(buf, &frameData[0], read_size);
+    } else {
         data->eos = pkt_eos = 1;
     }
+
+
+    std::cout << "Loading frame " << frameNum << ", size: " << read_size << "\n";
+
+    loadTimes[frameNum] = millis();
 
     // write data to packet
     mpp_packet_write(packet, 0, buf, read_size);
@@ -92,6 +102,7 @@ static int decode_simple(MpiDecLoopData *data)
     do {
         RK_S32 times = 5;
         // send the packet first if packet is not done
+        uint64_t t1 = millis();
         if (!pkt_done) {
             ret = mpi->decode_put_packet(ctx, packet);
             if (MPP_OK == ret)
@@ -138,6 +149,11 @@ static int decode_simple(MpiDecLoopData *data)
 
                     mpi->control(ctx, MPP_DEC_SET_INFO_CHANGE_READY, NULL);
                 } else {
+
+                    uint64_t t2 = millis();
+
+                    printf("\n\nDecode time: %d\n\n", (int)(t2-loadTimes[data->frame_count]));
+
                     err_info = mpp_frame_get_errinfo(frame) | mpp_frame_get_discard(frame);
                     if (err_info) {
                         printf("decoder_get_frame get err info:%d discard:%d.\n",
@@ -185,102 +201,6 @@ static int decode_simple(MpiDecLoopData *data)
     return ret;
 }
 
-static int decode_advanced(MpiDecLoopData *data)
-{
-    RK_U32 pkt_eos  = 0;
-    MPP_RET ret = MPP_OK;
-    MppCtx ctx  = data->ctx;
-    MppApi *mpi = data->mpi;
-    char   *buf = data->buf;
-    MppPacket packet = data->packet;
-    MppFrame  frame  = data->frame;
-    MppTask task = NULL;
-    size_t read_size = fread(buf, 1, data->packet_size, data->fp_input);
-
-    if (read_size != data->packet_size || feof(data->fp_input)) {
-        printf("found last packet\n");
-
-        // setup eos flag
-        data->eos = pkt_eos = 1;
-    }
-
-    // reset pos
-    mpp_packet_set_pos(packet, buf);
-    mpp_packet_set_length(packet, read_size);
-    // setup eos flag
-    if (pkt_eos)
-        mpp_packet_set_eos(packet);
-
-    ret = mpi->poll(ctx, MPP_PORT_INPUT, MPP_POLL_BLOCK);
-    if (ret) {
-        printf("mpp input poll failed\n");
-        return ret;
-    }
-
-    ret = mpi->dequeue(ctx, MPP_PORT_INPUT, &task);  /* input queue */
-    if (ret) {
-        printf("mpp task input dequeue failed\n");
-        return ret;
-    }
-
-    assert(task);
-
-    mpp_task_meta_set_packet(task, KEY_INPUT_PACKET, packet);
-    mpp_task_meta_set_frame (task, KEY_OUTPUT_FRAME,  frame);
-
-    ret = mpi->enqueue(ctx, MPP_PORT_INPUT, task);  /* input queue */
-    if (ret) {
-        printf("mpp task input enqueue failed\n");
-        return ret;
-    }
-
-    /* poll and wait here */
-    ret = mpi->poll(ctx, MPP_PORT_OUTPUT, MPP_POLL_BLOCK);
-    if (ret) {
-        printf("mpp output poll failed\n");
-        return ret;
-    }
-
-    ret = mpi->dequeue(ctx, MPP_PORT_OUTPUT, &task); /* output queue */
-    if (ret) {
-        printf("mpp task output dequeue failed\n");
-        return ret;
-    }
-
-    assert(task);
-
-    if (task) {
-        MppFrame frame_out = NULL;
-        mpp_task_meta_get_frame(task, KEY_OUTPUT_FRAME, &frame_out);
-        //assert(packet_out == packet);
-
-        if (frame) {
-            /* write frame to file here */
-            MppBuffer buf_out = mpp_frame_get_buffer(frame_out);
-
-            if (buf_out) {
-                void *ptr = mpp_buffer_get_ptr(buf_out);
-                size_t len  = mpp_buffer_get_size(buf_out);
-
-                if (data->fp_output)
-                    fwrite(ptr, 1, len, data->fp_output);
-
-                printf("decoded frame %d size %d\n", data->frame_count, len);
-            }
-
-            if (mpp_frame_get_eos(frame_out))
-                printf("found eos frame\n");
-        }
-
-        /* output queue */
-        ret = mpi->enqueue(ctx, MPP_PORT_OUTPUT, task);
-        if (ret)
-            printf("mpp task output enqueue failed\n");
-    }
-
-    return ret;
-}
-
 int mpi_dec_test_decode(MpiDecTestCmd *cmd)
 {
     MPP_RET ret         = MPP_OK;
@@ -316,19 +236,6 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     printf("mpi_dec_test start\n");
     memset(&data, 0, sizeof(data));
 
-    if (cmd->have_input) {
-        data.fp_input = fopen(cmd->file_input, "rb");
-        if (NULL == data.fp_input) {
-            printf("failed to open input file %s\n", cmd->file_input);
-            goto MPP_TEST_OUT;
-        }
-
-        fseek(data.fp_input, 0L, SEEK_END);
-        file_size = ftell(data.fp_input);
-        rewind(data.fp_input);
-        printf("input file size %ld\n", file_size);
-    }
-
     if (cmd->have_output) {
         data.fp_output = fopen(cmd->file_output, "w+b");
         if (NULL == data.fp_output) {
@@ -361,6 +268,14 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
 
     // NOTE: decoder split mode need to be set before init
     mpi_cmd = MPP_DEC_SET_PARSER_SPLIT_MODE;
+    param = &need_split;
+    ret = mpi->control(ctx, mpi_cmd, param);
+    if (MPP_OK != ret) {
+        printf("mpi->control failed\n");
+        goto MPP_TEST_OUT;
+    }
+
+    mpi_cmd = MPP_DEC_SET_IMMEDIATE_OUT;
     param = &need_split;
     ret = mpi->control(ctx, mpi_cmd, param);
     if (MPP_OK != ret) {
@@ -445,16 +360,23 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
         data.fp_output = NULL;
     }
 
-    if (data.fp_input) {
-        fclose(data.fp_input);
-        data.fp_input = NULL;
-    }
-
     return ret;
 }
 
 int main(int argc, char **argv)
 {
+    for (int i = 0; i < 30; ++i) {
+        framesData[i] = readFromFileFull(
+                std::string("frame_") + std::to_string(i+1) + ".264"
+        );
+        if (framesData[i].size() == 0) {
+            std::cerr << "Failed to load frame " << i+1 << "\n";
+            throw 1;
+        }
+//        std::cout << "Read frame " << i << ", size: " << framesData[i].size() << "\n";
+    }
+
+
     RK_S32 ret = 0;
     MpiDecTestCmd  cmd_ctx;
     MpiDecTestCmd* cmd = &cmd_ctx;
@@ -465,11 +387,9 @@ int main(int argc, char **argv)
     cmd->width = 1920;
     cmd->height = 1080;
 
-    cmd->have_input = 1;
-    cmd->have_output = 0;
-
-    std::string inFileName = "/home/fippo/frames/test.264";
-    memcpy(cmd->file_input, inFileName.data(), inFileName.size());
+    cmd->have_output = 1;
+    std::string outFileName = "test.yuv";
+    memcpy(cmd->file_output, outFileName.data(), outFileName.size());
 
     // parse the cmd option
 
