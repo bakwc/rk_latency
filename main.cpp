@@ -86,7 +86,7 @@ static int decode_simple(MpiDecLoopData *data)
     }
 
 
-    std::cout << "Loading frame " << frameNum << ", size: " << read_size << "\n";
+//    std::cout << "Loading frame " << frameNum << ", size: " << read_size << "\n";
 
     loadTimes[frameNum] = millis();
 
@@ -152,14 +152,15 @@ static int decode_simple(MpiDecLoopData *data)
 
                     uint64_t t2 = millis();
 
-                    printf("\n\nDecode time: %d\n\n", (int)(t2-loadTimes[data->frame_count]));
+                    printf("Decode frame: %d, time: %d\n", data->frame_count+1, (int)(t2-loadTimes[data->frame_count+1]));
 
                     err_info = mpp_frame_get_errinfo(frame) | mpp_frame_get_discard(frame);
                     if (err_info) {
                         printf("decoder_get_frame get err info:%d discard:%d.\n",
                                 mpp_frame_get_errinfo(frame), mpp_frame_get_discard(frame));
                     }
-                    printf("decode_get_frame get frame %d\n", data->frame_count++);
+//                    printf("decode_get_frame get frame %d\n", data->frame_count++);
+                    data->frame_count++;
                     if (data->fp_output && !err_info)
                         dump_mpp_frame_to_file(frame, data->fp_output);
                 }
