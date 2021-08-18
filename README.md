@@ -1,6 +1,7 @@
 # rk_latency
 
 Example of low latency frame by frame decoding using rockchip mpp library https://github.com/rockchip-linux/mpp
+For rk3399 it gives 6-8 ms. latency with 1920x1080 100kb h264 frames.
 
 ## Run steps
 ```
