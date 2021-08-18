@@ -231,6 +231,7 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     RK_U32 need_split   = 0;
     RK_U32 need_immediate = 1;
     RK_S32 fast_out = 1;
+    RK_U32 batch_mode = 0;
     RK_U32 output_block = MPP_POLL_BLOCK;
     RK_S64 block_timeout = cmd->timeout;
 
@@ -332,6 +333,12 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     ret = mpp_dec_cfg_set_u32(cfg, "base:fast_out", fast_out);
     if (ret) {
         printf("%p failed to set fast_out ret %d\n", ctx, ret);
+        goto MPP_TEST_OUT;
+    }
+
+    ret = mpp_dec_cfg_set_u32(cfg, "base:batch_mode", batch_mode);
+    if (ret) {
+        printf("%p failed to set batch_mode ret %d\n", ctx, ret);
         goto MPP_TEST_OUT;
     }
 
