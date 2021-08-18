@@ -157,7 +157,7 @@ static int decode_simple(MpiDecLoopData *data)
 
                     get_frm = 1;
 
-                    printf("Decode frame: %d, time: %d\n", data->frame_count+1, (int)(t2-loadTimes[data->frame_count+1]));
+                    printf("Decode frame: %d, time: %d ms\n", data->frame_count+1, (int)(t2-loadTimes[data->frame_count+1]));
 
                     err_info = mpp_frame_get_errinfo(frame) | mpp_frame_get_discard(frame);
                     if (err_info) {
@@ -291,13 +291,13 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
         goto MPP_TEST_OUT;
     }
 
-    mpi_cmd = MPP_DEC_SET_IMMEDIATE_OUT;
-    param = &need_immediate;
-    ret = mpi->control(ctx, mpi_cmd, param);
-    if (MPP_OK != ret) {
-        printf("mpi->control failed\n");
-        goto MPP_TEST_OUT;
-    }
+//    mpi_cmd = MPP_DEC_SET_IMMEDIATE_OUT;
+//    param = &need_immediate;
+//    ret = mpi->control(ctx, mpi_cmd, param);
+//    if (MPP_OK != ret) {
+//        printf("mpi->control failed\n");
+//        goto MPP_TEST_OUT;
+//    }
 
     if (block_timeout) {
         param = &output_block;
@@ -322,7 +322,7 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     }
 
     mpp_dec_cfg_init(&cfg);
-
+/*
     ret = mpp_dec_cfg_set_u32(cfg, "base:split_parse", need_split);
     if (ret) {
         printf("%p failed to set split_parse ret %d\n", ctx, ret);
@@ -352,6 +352,7 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
         printf("%p failed to set batch_mode ret %d\n", ctx, ret);
         goto MPP_TEST_OUT;
     }
+    */
 
     ret = mpi->control(ctx, MPP_DEC_SET_CFG, cfg);
     if (ret) {
@@ -444,6 +445,10 @@ int main(int argc, char **argv)
     cmd->type = MPP_VIDEO_CodingAVC;
     cmd->width = 1920;
     cmd->height = 1080;
+
+    std::string outFile = "dump.yuv";
+    memcpy(cmd->file_output, &outFile[0], outFile.size());
+    cmd->have_output = 1;
 
     // parse the cmd option
 

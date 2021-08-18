@@ -36,7 +36,7 @@ void _show_options(int count, OptionInfo *options)
 
 void dump_mpp_frame_to_file(MppFrame frame, FILE *fp)
 {
-    printf(" === dump to file\n");
+//    printf(" === dump to file\n");
     RK_U32 width    = 0;
     RK_U32 height   = 0;
     RK_U32 h_stride = 0;
@@ -48,7 +48,7 @@ void dump_mpp_frame_to_file(MppFrame frame, FILE *fp)
     if (NULL == frame)
         return ;
 
-    printf(" === 11\n");
+//    printf(" === 11\n");
 
     width    = mpp_frame_get_width(frame);
     height   = mpp_frame_get_height(frame);
@@ -60,10 +60,10 @@ void dump_mpp_frame_to_file(MppFrame frame, FILE *fp)
     if (NULL == buffer)
         return ;
 
-    printf(" === 22\n");
-    return;
+//    printf(" === 22\n");
+//    return;
 
-    printf("FMT: %d\n", (int)fmt);
+//    printf("FMT: %d\n", (int)fmt);
 
     base = (RK_U8 *)mpp_buffer_get_ptr(buffer);
 
