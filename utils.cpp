@@ -45,7 +45,7 @@ void dump_mpp_frame_to_file(MppFrame frame, FILE *fp)
     MppBuffer buffer    = NULL;
     RK_U8 *base = NULL;
 
-    if (NULL == fp || NULL == frame)
+    if (NULL == frame)
         return ;
 
     printf(" === 11\n");
@@ -61,6 +61,7 @@ void dump_mpp_frame_to_file(MppFrame frame, FILE *fp)
         return ;
 
     printf(" === 22\n");
+    return;
 
     printf("FMT: %d\n", (int)fmt);
 

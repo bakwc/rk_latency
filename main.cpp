@@ -16,7 +16,7 @@
 #include <stdlib.h>
 
 #include "rk_mpi.h"
-
+#include "rk_vdec_cfg.h"
 #include "mpp_common.h"
 
 #include "utils.h"
@@ -74,6 +74,9 @@ static int decode_simple(MpiDecLoopData *data)
 
     static int frameNum = 0;
     ++frameNum;
+
+    printf("Put frame: %d\n", frameNum);
+
     static std::map<int, uint64_t> loadTimes;
 
     int read_size = 0;
@@ -152,6 +155,8 @@ static int decode_simple(MpiDecLoopData *data)
 
                     uint64_t t2 = millis();
 
+                    get_frm = 1;
+
                     printf("Decode frame: %d, time: %d\n", data->frame_count+1, (int)(t2-loadTimes[data->frame_count+1]));
 
                     err_info = mpp_frame_get_errinfo(frame) | mpp_frame_get_discard(frame);
@@ -167,7 +172,7 @@ static int decode_simple(MpiDecLoopData *data)
                 frm_eos = mpp_frame_get_eos(frame);
                 mpp_frame_deinit(&frame);
                 frame = NULL;
-                get_frm = 1;
+//                get_frm = 1;
             }
 
             // if last packet is send but last frame is not found continue
@@ -181,9 +186,13 @@ static int decode_simple(MpiDecLoopData *data)
                 break;
             }
 
+//            if (get_frm)
+//                continue;
+//            break;
+
             if (get_frm)
-                continue;
-            break;
+                break;
+            continue;
         } while (1);
 
         if (pkt_done)
@@ -219,7 +228,9 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
 
     MpiCmd mpi_cmd      = MPP_CMD_BASE;
     MppParam param      = NULL;
-    RK_U32 need_split   = 1;
+    RK_U32 need_split   = 0;
+    RK_U32 need_immediate = 1;
+    RK_S32 fast_out = 1;
     RK_U32 output_block = MPP_POLL_BLOCK;
     RK_S64 block_timeout = cmd->timeout;
 
@@ -227,6 +238,8 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     RK_U32 width        = cmd->width;
     RK_U32 height       = cmd->height;
     MppCodingType type  = cmd->type;
+
+    MppDecCfg cfg       = nullptr;
 
     // resources
     char *buf           = NULL;
@@ -279,7 +292,7 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     }
 
     mpi_cmd = MPP_DEC_SET_IMMEDIATE_OUT;
-    param = &need_split;
+    param = &need_immediate;
     ret = mpi->control(ctx, mpi_cmd, param);
     if (MPP_OK != ret) {
         printf("mpi->control failed\n");
@@ -305,6 +318,26 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     ret = mpp_init(ctx, MPP_CTX_DEC, type);
     if (MPP_OK != ret) {
         printf("mpp_init failed\n");
+        goto MPP_TEST_OUT;
+    }
+
+    mpp_dec_cfg_init(&cfg);
+
+    ret = mpp_dec_cfg_set_u32(cfg, "base:split_parse", need_split);
+    if (ret) {
+        printf("%p failed to set split_parse ret %d\n", ctx, ret);
+        goto MPP_TEST_OUT;
+    }
+
+    ret = mpp_dec_cfg_set_u32(cfg, "base:fast_out", fast_out);
+    if (ret) {
+        printf("%p failed to set fast_out ret %d\n", ctx, ret);
+        goto MPP_TEST_OUT;
+    }
+
+    ret = mpi->control(ctx, MPP_DEC_SET_CFG, cfg);
+    if (ret) {
+        printf("%p failed to set cfg %p ret %d\n", ctx, cfg, ret);
         goto MPP_TEST_OUT;
     }
 
@@ -373,12 +406,11 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
 
 int main(int argc, char **argv)
 {
-    for (int i = 0; i < 30; ++i) {
-        framesData[i] = readFromFileFull(
-                std::string("frame_") + std::to_string(i+1) + ".264"
-        );
+    for (int i = 0; i < 60; ++i) {
+        std::string fname = std::string("frame_") + std::to_string(i%30+1) + ".264";
+        framesData[i] = readFromFileFull(fname);
         if (framesData[i].size() == 0) {
-            std::cerr << "Failed to load frame " << i+1 << "\n";
+            std::cerr << "Failed to load file " << fname << "\n";
             throw 1;
         }
 //        std::cout << "Read frame " << i << ", size: " << framesData[i].size() << "\n";
