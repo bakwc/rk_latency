@@ -186,13 +186,9 @@ static int decode_simple(MpiDecLoopData *data)
                 break;
             }
 
-//            if (get_frm)
-//                continue;
-//            break;
-
             if (get_frm)
                 break;
-            continue;
+            usleep(2000);
         } while (1);
 
         if (pkt_done)
@@ -232,6 +228,9 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     RK_U32 need_immediate = 1;
     RK_S32 fast_out = 1;
     RK_U32 batch_mode = 0;
+    RK_U32 sort_pts = 1;
+    RK_U32 enable_vproc = 1;
+    RK_U32 fast_parse = 1;
     RK_U32 output_block = MPP_POLL_BLOCK;
     RK_S64 block_timeout = cmd->timeout;
 
@@ -337,6 +336,18 @@ int mpi_dec_test_decode(MpiDecTestCmd *cmd)
     }
 
     ret = mpp_dec_cfg_set_u32(cfg, "base:batch_mode", batch_mode);
+    if (ret) {
+        printf("%p failed to set batch_mode ret %d\n", ctx, ret);
+        goto MPP_TEST_OUT;
+    }
+
+    ret = mpp_dec_cfg_set_u32(cfg, "base:sort_pts", sort_pts);
+    if (ret) {
+        printf("%p failed to set batch_mode ret %d\n", ctx, ret);
+        goto MPP_TEST_OUT;
+    }
+
+    ret = mpp_dec_cfg_set_u32(cfg, "base:enable_vproc", enable_vproc);
     if (ret) {
         printf("%p failed to set batch_mode ret %d\n", ctx, ret);
         goto MPP_TEST_OUT;
